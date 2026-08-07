@@ -43,6 +43,9 @@ class App(tk.Tk):
         self._lock = threading.Lock()
 
         self._build_ui()
+        if self.store.recuperada:
+            self._set_status("La base de datos estaba dañada: se apartó una copia "
+                             "(actividad.db.corrupta-*) y se empezó una nueva.")
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.after(300, self._first_run)
         self.after(600, self._tick)

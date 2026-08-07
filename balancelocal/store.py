@@ -4,6 +4,7 @@ del usuario; el boton de panico lo borra entero."""
 from __future__ import annotations
 
 import logging
+import os
 import sqlite3
 import time
 from datetime import date, datetime, timedelta
@@ -17,15 +18,42 @@ logger = logging.getLogger(__name__)
 class Store:
     def __init__(self, db_path: str):
         self.db_path = str(db_path)
+        self.recuperada = False   # True si la BD estaba corrupta y se recreo
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
-        self._con = sqlite3.connect(self.db_path, check_same_thread=False)
-        self._con.execute("PRAGMA journal_mode=WAL")
-        self._con.execute("""
-            CREATE TABLE IF NOT EXISTS muestras(
-                ts REAL NOT NULL, app TEXT NOT NULL, titulo TEXT NOT NULL DEFAULT '',
-                activo INTEGER NOT NULL, segundos INTEGER NOT NULL)""")
-        self._con.execute("CREATE INDEX IF NOT EXISTS ix_ts ON muestras(ts)")
-        self._con.commit()
+        try:
+            self._con = self._abrir()
+        except sqlite3.DatabaseError as exc:
+            # BD corrupta (corte de luz, disco lleno, antivirus): sin esto la
+            # app moria al arrancar y no volvia a abrir hasta borrar a mano
+            # actividad.db. Se aparta conservando la evidencia y se recrea.
+            logger.warning("actividad.db corrupta (%s): se aparta y se crea una nueva", exc)
+            stamp = date.today().strftime("%Y%m%d")
+            os.replace(self.db_path, self.db_path + f".corrupta-{stamp}")
+            for suf in ("-wal", "-shm"):
+                # los sidecar del WAL pertenecen a la BD corrupta: fuera
+                try:
+                    Path(self.db_path + suf).unlink(missing_ok=True)
+                except OSError:
+                    pass
+            self._con = self._abrir()
+            self.recuperada = True
+
+    def _abrir(self) -> sqlite3.Connection:
+        # connect() abre en diferido: la corrupcion salta en el primer PRAGMA,
+        # por eso todo el arranque va junto y con cierre en caso de error
+        con = sqlite3.connect(self.db_path, check_same_thread=False)
+        try:
+            con.execute("PRAGMA journal_mode=WAL")
+            con.execute("""
+                CREATE TABLE IF NOT EXISTS muestras(
+                    ts REAL NOT NULL, app TEXT NOT NULL, titulo TEXT NOT NULL DEFAULT '',
+                    activo INTEGER NOT NULL, segundos INTEGER NOT NULL)""")
+            con.execute("CREATE INDEX IF NOT EXISTS ix_ts ON muestras(ts)")
+            con.commit()
+        except sqlite3.DatabaseError:
+            con.close()
+            raise
+        return con
 
     def close(self) -> None:
         try:

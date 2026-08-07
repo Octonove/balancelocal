@@ -22,13 +22,17 @@ class VideoError(Exception):
 
 
 def concat_cmd(ffmpeg: str, list_file: str, out_mp4: str, seg_por_tarjeta: float = 7.0) -> list:
-    """Comando FFmpeg: cada tarjeta se muestra `seg_por_tarjeta` s. Puro."""
+    """Comando FFmpeg: cada tarjeta se muestra `seg_por_tarjeta` s. Puro.
+
+    Ojo: nada de '-fps_mode vfr' aqui. Combinado con '-r 30', FFmpeg >=5.1 lo
+    rechaza al arrancar ("This is contradictory") y el video no se generaba
+    nunca. Para un slideshow la salida CFR de '-r 30' es justo lo deseado."""
     return [ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
             "-f", "concat", "-safe", "0", "-i", list_file,
             "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,"
                    "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,format=yuv420p",
             "-r", "30", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
-            "-fps_mode", "vfr", out_mp4]
+            out_mp4]
 
 
 def montar(ffmpeg: str, tarjetas: list[str], out_mp4: str,

@@ -1,6 +1,8 @@
 """Tests de logica pura de BalanceLocal (categorizacion, estadisticas, store,
 tarjetas, informe). Ejecutar:  python -m pytest tests/ -q"""
 
+import os
+import subprocess
 import sys
 from datetime import date, datetime
 from pathlib import Path
@@ -9,7 +11,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from balancelocal import cards, categorize, report, stats  # noqa: E402
+from balancelocal import cards, categorize, report, stats, video  # noqa: E402
 from balancelocal.stats import Muestra  # noqa: E402
 from balancelocal.store import Store  # noqa: E402
 
@@ -117,6 +119,29 @@ def test_store_borrar_titulos(tmp_path):
         s.close()
 
 
+def test_store_bd_corrupta_se_recupera(tmp_path):
+    # una actividad.db con basura NO debe matar el arranque para siempre:
+    # se aparta como evidencia y se recrea vacia
+    db = tmp_path / "c.db"
+    basura = b"esto no es una base de datos sqlite " * 4
+    db.write_bytes(basura)
+    s = Store(str(db))
+    try:
+        assert s.recuperada
+        s.add("chrome.exe", "x", True, 900)
+        assert s.segundos_hoy_activos() == 900
+        respaldos = list(tmp_path.glob("c.db.corrupta-*"))
+        assert len(respaldos) == 1 and respaldos[0].read_bytes() == basura
+    finally:
+        s.close()
+    # una BD sana no debe marcar recuperada
+    s2 = Store(str(tmp_path / "sana.db"))
+    try:
+        assert not s2.recuperada
+    finally:
+        s2.close()
+
+
 # ------------------------------------------------------------------- cards
 def test_generar_tarjetas(tmp_path):
     from PIL import Image
@@ -139,6 +164,49 @@ def test_ajustar_texto():
     assert corto == "Chrome"
     largo = cards._ajustar(d, "X" * 200, f, 400)
     assert largo.endswith("…") and d.textlength(largo, font=f) <= 400
+
+
+# ------------------------------------------------------------------- video
+def test_concat_cmd_sin_flags_contradictorios():
+    cmd = video.concat_cmd("ffmpeg", "lista.txt", "out.mp4")
+    # '-r 30' junto a '-fps_mode vfr' (o '-vsync vfr') hace que FFmpeg >=5.1
+    # aborte al arrancar ("This is contradictory"): el video no salia NUNCA
+    assert "-fps_mode" not in cmd and "-vsync" not in cmd
+    assert cmd[cmd.index("-r") + 1] == "30"
+    assert cmd[-1] == "out.mp4"
+
+
+@pytest.mark.skipif(not video.find_ffmpeg(), reason="FFmpeg no instalado")
+def test_montar_video_smoke(tmp_path):
+    # smoke contra el FFmpeg real del sistema: es lo unico que detecta flags
+    # que una version nueva rechaza (la causa del bug del mini-video)
+    from PIL import Image
+    tarjetas = []
+    for i in range(2):
+        p = tmp_path / f"t{i}.png"
+        Image.new("RGB", (108, 192), (40 + 80 * i, 80, 120)).save(p)
+        tarjetas.append(str(p))
+    out = tmp_path / "wrapped.mp4"
+    video.montar(video.find_ffmpeg(), tarjetas, str(out), seg_por_tarjeta=0.5)
+    assert out.is_file() and out.stat().st_size > 0
+
+
+# ----------------------------------------------------------------- lanzador
+def test_instancia_unica_mutex():
+    import BalanceLocal as lanzador
+    # nombre propio del test: no colisiona con una app real abierta
+    nombre = f"Local\\BalanceLocal_test_{os.getpid()}"
+    assert lanzador._single_instance(nombre)          # libre: la adquiere
+    # un segundo PROCESO debe verla ocupada mientras este proceso viva
+    raiz = str(Path(__file__).resolve().parent.parent)
+    env = dict(os.environ)
+    env["PYTHONPATH"] = raiz + os.pathsep + env.get("PYTHONPATH", "")
+    r = subprocess.run(
+        [sys.executable, "-c",
+         "import sys, BalanceLocal; "
+         f"sys.exit(0 if not BalanceLocal._single_instance({nombre!r}) else 1)"],
+        env=env, timeout=30)
+    assert r.returncode == 0
 
 
 # ------------------------------------------------------------------- report
