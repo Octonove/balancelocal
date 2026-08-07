@@ -3,10 +3,13 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
 from .categorize import categoria, nombre_amigable
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -109,3 +112,51 @@ def titulares(resumen: Resumen) -> list[str]:
     if racha >= 2:
         out.append(f"Encadenaste {racha} días seguidos de trabajo.")
     return out
+
+
+def _cifras(texto: str) -> list[str]:
+    """Grupos de digitos de una frase ('8,5', '3'...). Para validar la IA."""
+    import re
+    return re.findall(r"\d+(?:[.,]\d+)?", texto)
+
+
+def titulares_finales(resumen: Resumen, timeout: float = 25.0) -> list[str]:
+    """Titulares del Wrapped: los heuristicos, reescritos con la IA configurada
+    ('Configurar IA…') si la hay. Garantias: una sola llamada, timeout acotado
+    (la 1a a Ollama carga el modelo), y validacion ESTRICTA por linea — mismo
+    numero de lineas, longitud acotada y las MISMAS cifras que la heuristica
+    (la IA pule la redaccion, jamas los datos). Ante cualquier fallo, se
+    devuelven los heuristicos: el Wrapped nunca puede fallar por la IA."""
+    base = titulares(resumen)
+    if not base:
+        return base
+    try:
+        from octonove_core import llm
+        if not llm.available():
+            return base
+        numeradas = "\n".join(f"{i+1}. {t}" for i, t in enumerate(base))
+        out = llm.generate(
+            "Reescribe estos titulares de un resumen semanal de trabajo para que "
+            "suenen mas celebratorios y con gancho (estilo Spotify Wrapped), en "
+            "espanol. Devuelve EXACTAMENTE el mismo numero de lineas, numeradas "
+            "igual (1., 2., ...), conservando todas las cifras y los nombres de "
+            "aplicaciones tal cual. Maximo 12 palabras por linea. Nada mas que "
+            f"las lineas:\n\n{numeradas}",
+            system="Eres un redactor conciso. Respondes SOLO con las lineas pedidas.",
+            timeout=timeout, temperature=0.4)
+        if not out:
+            return base
+        import re
+        lineas = [re.sub(r"^\s*\d+[.)]\s*", "", ln).strip().strip('"')
+                  for ln in out.strip().splitlines() if ln.strip()]
+        if len(lineas) != len(base):
+            return base
+        finales = []
+        for orig, nueva in zip(base, lineas):
+            ok = (0 < len(nueva) <= 90
+                  and sorted(_cifras(nueva)) == sorted(_cifras(orig)))
+            finales.append(nueva if ok else orig)
+        return finales
+    except Exception as exc:  # noqa: BLE001  la IA nunca tumba el Wrapped
+        logger.warning("titulares con IA fallaron (%s): heuristicos", exc)
+        return base

@@ -35,7 +35,8 @@ def _rgb(hx: str):
     return int(c[0:2], 16) / 255, int(c[2:4], 16) / 255, int(c[4:6], 16) / 255
 
 
-def exportar_pdf(out_path: str, resumen: Resumen, *, lunes: date, domingo: date) -> str:
+def exportar_pdf(out_path: str, resumen: Resumen, *, lunes: date, domingo: date,
+                 titulares_pre: list[str] | None = None) -> str:
     import fitz
     doc = fitz.open()
     try:
@@ -64,7 +65,7 @@ def exportar_pdf(out_path: str, resumen: Resumen, *, lunes: date, domingo: date)
         put(f'<div style="font-family:sans-serif;font-size:15px;color:#334155">'
             f'Foco total: <b>{resumen.horas_activas} horas</b></div>', 8)
 
-        tit = titulares(resumen)
+        tit = titulares_pre or titulares(resumen)
         if tit:
             put('<div style="font-family:sans-serif;font-size:11px;color:#475569;line-height:1.6">'
                 + "<br>".join("• " + html.escape(t) for t in tit) + "</div>", 12)

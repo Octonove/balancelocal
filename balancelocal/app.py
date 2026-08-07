@@ -40,6 +40,7 @@ class App(tk.Tk):
         self.tracker = Tracker(self._on_muestra, inactividad_seg=self.cfg.inactividad_seg,
                                guardar_titulos=self.cfg.guardar_titulos)
         self._closing = False
+        self._tit_ia = None    # (rango, titulares) del ultimo Wrapped con IA
         self._lock = threading.Lock()
 
         self._build_ui()
@@ -159,6 +160,11 @@ class App(tk.Tk):
             video_msg = None
             rutas = []
             video = None
+            # titulares con IA (si esta configurada) en el HILO del worker: una
+            # llamada con timeout y fallback a los heuristicos. Se cachean por
+            # rango para que el Informe PDF de la misma semana los reutilice.
+            tit = stats.titulares_finales(resumen)
+            self._tit_ia = (rango, tit)
             try:
                 rutas = cards.generar_todas(resumen, rango, str(out_dir))
                 if hacer_video:
@@ -178,12 +184,13 @@ class App(tk.Tk):
             if not self._closing:
                 try:
                     self.after(0, self._wrapped_done, resumen, str(out_dir), rutas, video,
-                               error, video_msg)
+                               error, video_msg, tit)
                 except (RuntimeError, tk.TclError):
                     pass
         threading.Thread(target=runner, daemon=True).start()
 
-    def _wrapped_done(self, resumen, out_dir, rutas, video, error, video_msg) -> None:
+    def _wrapped_done(self, resumen, out_dir, rutas, video, error, video_msg,
+                      tit=None) -> None:
         try:
             self.btn_wrap.config(state="normal")
         except tk.TclError:
@@ -194,7 +201,8 @@ class App(tk.Tk):
         # vista previa de titulares
         self.txt_prev.config(state="normal")
         self.txt_prev.delete("1.0", "end")
-        self.txt_prev.insert("1.0", "Tu semana:\n\n" + "\n".join("• " + t for t in stats.titulares(resumen)))
+        self.txt_prev.insert("1.0", "Tu semana:\n\n" + "\n".join(
+            "• " + t for t in (tit or stats.titulares(resumen))))
         self.txt_prev.config(state="disabled")
         extra = ""
         if video_msg == "sin_ffmpeg":
@@ -216,8 +224,15 @@ class App(tk.Tk):
             messagebox.showinfo(APP_NAME, "Aún no hay suficiente actividad esta semana.")
             return
         out = Path(self.cfg.output_dir) / f"Semana_{lunes.strftime('%Y-%m-%d')}.pdf"
+        # si el ultimo Wrapped (misma semana) redacto titulares con IA, el PDF
+        # los reutiliza; el PDF no llama a la IA (es sincrono en el hilo de UI)
+        rango = f"{lunes.strftime('%d/%m')} – {domingo.strftime('%d/%m/%Y')}"
+        tit_pre = None
+        if self._tit_ia and self._tit_ia[0] == rango:
+            tit_pre = self._tit_ia[1]
         try:
-            report.exportar_pdf(str(out), resumen, lunes=lunes, domingo=domingo)
+            report.exportar_pdf(str(out), resumen, lunes=lunes, domingo=domingo,
+                                titulares_pre=tit_pre)
         except Exception as exc:  # noqa: BLE001
             logger.exception("pdf fallo")
             messagebox.showerror(APP_NAME, f"No se pudo generar el informe:\n{exc}")
@@ -284,7 +299,8 @@ class App(tk.Tk):
 
     def _ai_dialog(self) -> None:
         from octonove_core.ai_dialog import show_ai_dialog
-        show_ai_dialog(self, on_saved=lambda: self._set_status("IA configurada."))
+        show_ai_dialog(self, on_saved=lambda: self._set_status(
+            "IA configurada: los titulares del proximo Wrapped se redactaran con ella."))
 
     def _panico(self) -> None:
         if not messagebox.askyesno(APP_NAME, "Esto BORRA todos tus datos de actividad de "

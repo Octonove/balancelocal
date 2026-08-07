@@ -222,3 +222,50 @@ def test_informe_pdf(tmp_path):
     assert "Tu semana de trabajo" in text
     assert "Desarrollo" in text and "Correo" in text
     assert "13/07/2026" in text
+
+
+def _resumen_min():
+    """Resumen sintetico con actividad suficiente para tener titulares."""
+    from datetime import datetime, timedelta
+    from balancelocal.stats import resumir
+    from balancelocal.store import Muestra
+    base = datetime(2026, 8, 3, 9, 0)
+    ms = [Muestra((base + timedelta(minutes=i)).timestamp(), "chrome.exe", "Docs", 1, 60)
+          for i in range(120)]
+    return resumir(ms)
+
+
+def test_titulares_ia_valida_y_fallback(monkeypatch):
+    from octonove_core import llm
+    from balancelocal import stats
+    resumen = _resumen_min()
+    base = stats.titulares(resumen)
+    assert base
+    monkeypatch.setattr(llm, "available", lambda timeout=3.0: True)
+
+    # respuesta valida: mismo numero de lineas y mismas cifras -> se usa la IA
+    valida = "\n".join(f"{i+1}. ✨ {t}" for i, t in enumerate(base))
+    monkeypatch.setattr(llm, "generate", lambda *a, **k: valida)
+    out = stats.titulares_finales(resumen)
+    assert out != base and len(out) == len(base)
+
+    # numero de lineas equivocado -> fallback total
+    monkeypatch.setattr(llm, "generate", lambda *a, **k: "1. hola")
+    assert stats.titulares_finales(resumen) == base
+
+    # cifras alteradas en una linea -> esa linea cae a la heuristica
+    alterada = [f"{i+1}. {t}" for i, t in enumerate(base)]
+    alterada[0] = "1. Sumaste 999 horas de foco."
+    monkeypatch.setattr(llm, "generate", lambda *a, **k: "\n".join(alterada))
+    out = stats.titulares_finales(resumen)
+    assert out[0] == base[0]
+
+    # excepcion -> fallback total
+    def boom(*a, **k):
+        raise RuntimeError("x")
+    monkeypatch.setattr(llm, "generate", boom)
+    assert stats.titulares_finales(resumen) == base
+
+    # sin proveedor -> heuristicos sin llamar a generate
+    monkeypatch.setattr(llm, "available", lambda timeout=3.0: False)
+    assert stats.titulares_finales(resumen) == base
