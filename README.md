@@ -1,45 +1,54 @@
 # BalanceLocal
 
-**Tu "Wrapped" laboral, 100% en tu PC.** Como Spotify Wrapped o Strava, pero de tu trabajo de oficina: BalanceLocal observa en qué programas pasas el tiempo (solo en tu máquina) y cada semana genera **tarjetas visuales** y un **mini-vídeo** con tus estadísticas de foco. El único dueño del dato eres tú.
+[![license](https://img.shields.io/github/license/Octonove/balancelocal)](LICENSE)
+[![release](https://img.shields.io/github/v/release/Octonove/balancelocal)](https://github.com/Octonove/balancelocal/releases/latest)
+[![platform](https://img.shields.io/badge/platform-Windows%2010%2F11-1E3A5F)](https://github.com/Octonove/balancelocal/releases/latest)
 
-## ⬇️ Descargar (Windows 10/11)
+Your work Wrapped: where your time actually goes, as shareable cards, a PDF report and a mini-video.
 
-### ➡️ [**Descargar BalanceLocal (instalador .exe)**](https://github.com/Octonove/balancelocal/releases/latest/download/BalanceLocal-Setup.exe)
+**Free · Open source (MIT) · 100% local — nothing ever leaves your PC · No accounts, no limits, no watermarks**
 
-Descarga **directa** del instalador, sin registro. También puedes ver la [última versión y notas](https://github.com/Octonove/balancelocal/releases/latest).
+<img src="docs/screenshot.png" width="720" alt="BalanceLocal screenshot">
 
-> Si Windows muestra *"Windows protegió tu PC"*: pulsa **Más información → Ejecutar de todas formas**. Se instala sin permisos de administrador.
+> 🇪🇸 ¿Prefieres leerlo en español? → **[README en español](README.es.md)**
 
-## Qué hace
+## Features
 
-- **Mide tu foco sin vigilarte**: apunta qué programa tienes delante (nombre y título de ventana) y si hay teclado/ratón. **No registra lo que tecleas ni hace capturas de pantalla.**
-- **Categoriza tu tiempo** con heurísticas locales: Navegador, Documentos, Reuniones, Correo, Desarrollo, Diseño, Mensajería… (una reunión abierta en el navegador se cuenta como reunión).
-- **Tu Wrapped semanal**: 4 tarjetas PNG verticales listas para compartir (portada con tus horas de foco, tus 5 apps top, en qué se fue el tiempo, y tus récords: hora de oro y racha). Con FFmpeg instalado, además un **mini-vídeo** vertical.
-- **Informe PDF de la semana** con horas por categoría y por día — perfecto para el freelance que **factura por horas o proyecto**.
-- **IA opcional** (Ollama o una API con tu clave): reescribe tus titulares con más gracia. Sin IA es 100% funcional.
-- **Control total**: pausa cuando quieras, elige si guardar los títulos de ventana, y **borra todos tus datos** con un botón.
+- Samples your **active window** only — no keylogging, no screenshots
+- Weekly **Spotify-Wrapped-style cards** (1080x1920) and a mini-video
+- PDF report for freelancers who bill by the hour
+- Optional local AI rewrites your headlines (your numbers are never touched)
+- Panic button wipes all data instantly
 
-> **Privacidad**: la actividad se guarda **solo en tu equipo** (`%APPDATA%\BalanceLocal`), nunca sale de tu PC, y el único que la ve eres tú. No es una herramienta de vigilancia del jefe: es tu espejo.
+## Download (Windows 10/11)
 
-## Stack
+### ➡️ [**Download BalanceLocal (installer .exe)**](https://github.com/Octonove/balancelocal/releases/latest/download/BalanceLocal-Setup.exe)
 
-Python 3 + Tkinter (ttk) · SQLite · ctypes/Win32 (ventana activa + inactividad) · Pillow (tarjetas) · PyMuPDF (informe) · FFmpeg opcional (vídeo) · Ollama/API opcional.
+Direct download, no sign-up. If Windows shows *"Windows protected your PC"* (normal for new unsigned apps): click **More info → Run anyway**. Installs without administrator rights.
 
-Depende del paquete compartido [`octonove-core`](https://github.com/Octonove/octonove-core) (tema, config, IA, FFmpeg).
+> ⭐ **If BalanceLocal is useful to you, a star on GitHub is the best way to support it — it costs nothing and helps a lot.**
 
-## Compilar
+## More free local-first tools
 
-```powershell
-.\build\build.ps1              # ejecutable (PyInstaller onedir)
-.\build\build-installer.ps1    # instalador (Inno Setup)
-```
+Every tool in this family follows the same rules: free, open source, and nothing leaves your PC.
 
-## Tests
+| Tool | What it does |
+|---|---|
+| [CapturaPro](https://github.com/Octonove/capturapro) | Screenshots, GIFs and screen recordings for Windows — annotated, watermark-free, 100% local. |
+| [TranscriptorIA](https://github.com/Octonove/transcriptor-ia) | Audio & video to text and .srt subtitles with local Whisper AI — free, private, unlimited. |
+| [PDFLocal](https://github.com/Octonove/pdflocal) | The full PDF toolbox for Windows: merge, split, compress, sign, OCR and chat with your documents — no uploads. |
+| [CajaPDF](https://github.com/Octonove/cajapdf) | The tiny PDF utility: merge, split and compress — free, offline, no accounts. |
+| [CapturaStudio](https://github.com/Octonove/capturastudio) | An OBS-style recording & streaming studio with local AI superpowers — record, stream, auto-edit. |
+| [GuiaClick](https://github.com/Octonove/guiaclick) | Record your clicks, get a step-by-step guide — annotated screenshots, blur, PDF/HTML export. Like Scribe, but local. |
+| [ActaLocal](https://github.com/Octonove/actalocal) | Meetings → minutes: local Whisper transcription plus AI summary, decisions and action items. |
+| [AutoEscritorio](https://github.com/Octonove/autoescritorio) | Trigger→action automation for Windows: watch folders, hotkeys, USB, clipboard — simple and local. |
+| [CajaNegra](https://github.com/Octonove/cajanegra) | A dashcam for your PC: the last minutes of your screen, one hotkey away from a perfect incident report. |
+| [FichajeLocal](https://github.com/Octonove/fichajelocal) | A local time-clock kiosk for small business: PIN check-in, tamper-evident records, accountant-ready reports. |
+| [ITVLocal](https://github.com/Octonove/itvlocal) | An MOT-style inspection for your PC: 1–3 minutes, a 0–10 score and a PDF certificate. Inspects, never modifies. |
+| [SonarArchivo](https://github.com/Octonove/sonararchivo) | Find files by what's INSIDE them: local full-text search over your messy folders and old drives. |
 
-```powershell
-python -m pytest tests/ -q
-```
+Also: **[CRBRO](https://github.com/Octonove/crbro-memory)** — persistent neural memory for AI agents (MCP server).
 
-## Licencia
+## License
 
-[MIT](LICENSE) — © 2026 Octonove.
+[MIT](LICENSE) — see also [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) where present.
